@@ -5,7 +5,7 @@ const int dirPinTop = 3;
 const int stepPinDown = 4;
 const int dirPinDown = 5;
 const int pumpEnable = 8;
-const int IR_RECEIVE_PIN = 11;
+const int irReceivePin = 11;
 const int forwardButton = 22;
 const int stopButton = 24;
 const int backwardButton = 26;
@@ -27,7 +27,7 @@ void setup() {
   pinMode(forwardButton, INPUT);
 
   // IR initialisation
-  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
+  IrReceiver.begin(irReceivePin, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
   // initial dir
   stepMove('f');
   // disiable pump
