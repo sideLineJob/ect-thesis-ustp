@@ -9,10 +9,12 @@ const int irReceivePin = 11;
 const int forwardButton = 22;
 const int stopButton = 24;
 const int backwardButton = 26;
-
+const int limitButtonRight = 34;
+const int limitButtonLeft = 36;
 int customDelayMapped; // Defines variables
 
 boolean stopStep = true;
+char dirValue = ' ';
  
 void setup() {
   Serial.begin(115200);
@@ -25,6 +27,8 @@ void setup() {
   pinMode(forwardButton, INPUT);
   pinMode(stopButton, INPUT);
   pinMode(forwardButton, INPUT);
+  pinMode(limitButtonRight, INPUT);
+  pinMode(limitButtonLeft, INPUT);
 
   // IR initialisation
   IrReceiver.begin(irReceivePin, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
@@ -41,6 +45,7 @@ void loop() {
 
   irListener();
   buttonsListener();
+  limitSensorsListener();
   
 //  Serial.print("Speed: ");
 //  Serial.println(customDelayMapped);
@@ -78,6 +83,7 @@ void stepMove(char dir) {
 void stepControlWithoutPump(boolean stopControl, char dirControl) {
   stopStep = stopControl;
   stepMove(dirControl);
+  dirValue = dirControl;
   digitalWrite(pumpEnable, HIGH);
   delay(50);
 }
@@ -85,6 +91,7 @@ void stepControlWithoutPump(boolean stopControl, char dirControl) {
 void stepControlWithPump(boolean stopControl, char dirControl) {
   stopStep = stopControl;
   stepMove(dirControl);
+  dirValue = dirControl;
   if (stopControl) {
     digitalWrite(pumpEnable, HIGH);
   } else {
@@ -118,8 +125,8 @@ void irListener() {
         stepControlWithoutPump(false, 'b');
         
     } else if (IrReceiver.decodedIRData.command == 0x1C) {
-        // forward without pump
-        stepControlWithoutPump(true, 'f');
+        // stop without pump
+        stepControlWithoutPump(true, dirValue);
 
     } else if (IrReceiver.decodedIRData.command == 0x16) {
         // forward with pump
@@ -131,7 +138,7 @@ void irListener() {
       
     } else if (IrReceiver.decodedIRData.command == 0x19) {
         // stop with pump
-        stepControlWithPump(true, 'f');
+        stepControlWithPump(true, dirValue);
     }
   }
 }
@@ -152,4 +159,23 @@ void buttonsListener() {
   if (backBut) {
     stepControlWithoutPump(false, 'b');
   }
+}
+
+void limitSensorsListener() {
+  int rightLimit = digitalRead(limitButtonRight);
+  int leftLimit = digitalRead(limitButtonLeft);
+
+  if (rightLimit == 1 && dirValue == 'f') {
+    stepControlWithoutPump(true, 'r');
+  }
+
+  if (leftLimit == 1 && dirValue == 'b') {
+    stepControlWithoutPump(true, 'l');
+  }
+
+  Serial.print("DIR Value: ");
+  Serial.println(dirValue);
+//  Serial.print("Limit Sensor Left: ");
+//  Serial.println(leftLimit); 
+//  delay(500);
 }
