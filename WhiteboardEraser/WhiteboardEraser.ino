@@ -1,4 +1,6 @@
 #include <IRremote.h>
+#include <avr/sleep.h>
+#define interruptPin 18
 
 const int stepPinTop = 2;
 const int dirPinTop = 3;
@@ -15,7 +17,7 @@ int customDelayMapped; // Defines variables
 
 boolean stopStep = true;
 char dirValue = ' ';
- 
+
 void setup() {
   Serial.begin(115200);
   // Sets the two pins as Outputs
@@ -36,6 +38,13 @@ void setup() {
   stepMove('f');
   // disiable pump
   digitalWrite(pumpEnable, HIGH);
+
+  /**
+   * Power interrupt init
+   */
+   pinMode(LED_BUILTIN, OUTPUT);
+   pinMode(interruptPin, INPUT_PULLUP);
+   digitalWrite(LED_BUILTIN, HIGH);
 }
 void loop() {
 
@@ -178,4 +187,27 @@ void limitSensorsListener() {
 //  Serial.print("Limit Sensor Left: ");
 //  Serial.println(leftLimit); 
 //  delay(500);
+}
+
+/**
+ * Sleep Algo
+ */
+void goingToSleep() {
+  sleep_enable(); // Enabling sleep mode
+  attachInterrupt(digitalPinToInterrupt(interruptPin), wakeUp, LOW); // attaching pin interrupt to pin 2
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Setting the sleep mode(Full sleep)
+  // seet indicator that the system is off (LED turn off)
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(1000); // give time to fully turn off indicator
+  sleep_cpu(); // activating sleep mode
+  Serial.println("Just woke up!"); // Execute code after interrupt
+  // power on indicator
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
+void wakeUp() {
+  Serial.println("Interrupt Fired");
+  sleep_disable();
+  detachInterrupt(digitalPinToInterrupt(interruptPin));
+  // setup actions
 }
