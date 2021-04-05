@@ -1,6 +1,5 @@
 #include <IRremote.h>
-#include <avr/sleep.h>
-#define interruptPin 18
+//#include <EEPROM.h>
 
 const int stepPinTop = 2;
 const int dirPinTop = 3;
@@ -13,10 +12,13 @@ const int stopButton = 24;
 const int backwardButton = 26;
 const int limitButtonRight = 34;
 const int limitButtonLeft = 36;
+const int stepperPowerRelay = 38;
 int customDelayMapped; // Defines variables
 
 boolean stopStep = true;
 char dirValue = ' ';
+
+boolean offEndicator = false;
 
 void setup() {
   Serial.begin(115200);
@@ -31,6 +33,7 @@ void setup() {
   pinMode(forwardButton, INPUT);
   pinMode(limitButtonRight, INPUT);
   pinMode(limitButtonLeft, INPUT);
+  pinMode(stepperPowerRelay, OUTPUT);
 
   // IR initialisation
   IrReceiver.begin(irReceivePin, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
@@ -38,44 +41,22 @@ void setup() {
   stepMove('f');
   // disiable pump
   digitalWrite(pumpEnable, HIGH);
-
-  /**
-   * Power interrupt init
-   */
-   pinMode(LED_BUILTIN, OUTPUT);
-   pinMode(interruptPin, INPUT_PULLUP);
-   digitalWrite(LED_BUILTIN, HIGH);
+  //  digitalWrite(stepperPowerRelay, HIGH);
+  digitalWrite(stepperPowerRelay, LOW);
 }
 void loop() {
-
-  if (!stopStep) {
-    runStepper();
+  if (offEndicator == false) {
+    if (!stopStep) {
+      runStepper();
+    }
+  
+    buttonsListener();
+    limitSensorsListener();  
   }
 
   irListener();
-  buttonsListener();
-  limitSensorsListener();
-
-  if (Serial.available() > 0) {
-    char inByte = Serial.read();
-
-    Serial.print("Value: ");
-    Serial.println(inByte);
-
-    if (inByte == 's') {
-      delay(1000);
-      Serial.println("-- Go To Sleep --");
-      digitalWrite(pumpEnable, LOW);
-      delay(1000);
-      digitalWrite(pumpEnable, HIGH);
-//      goingToSleep();      
-    }
-  }
-  
-//  Serial.print("Speed: ");
-//  Serial.println(customDelayMapped);
 }
-// Function for reading the Potentiometer
+
 int speedUp() {
   int customDelay = analogRead(A0); // Reads the potentiometer
   int newCustom = map(customDelay, 0, 1023, 200, 800);
@@ -141,29 +122,37 @@ void irListener() {
     /*
      * Finally, check the received data and perform actions according to the received command
      */
-    if (IrReceiver.decodedIRData.command == 0x8) {
-        // forward without pump
-        stepControlWithoutPump(false, 'f');
+    if (offEndicator == false) {
+      if (IrReceiver.decodedIRData.command == 0x8) {
+          // forward without pump
+          stepControlWithoutPump(false, 'f');
+          
+      } else if (IrReceiver.decodedIRData.command == 0x5A) {
+          // backward without pump
+          stepControlWithoutPump(false, 'b');
+          
+          
+      } else if (IrReceiver.decodedIRData.command == 0x1C) {
+          // stop without pump
+          stepControlWithoutPump(true, dirValue);
+  
+      } else if (IrReceiver.decodedIRData.command == 0x16) {
+          // forward with pump
+          stepControlWithPump(false, 'f');
         
-    } else if (IrReceiver.decodedIRData.command == 0x5A) {
-        // backward without pump
-        stepControlWithoutPump(false, 'b');
+      } else if (IrReceiver.decodedIRData.command == 0xD) {
+          // backward with pump
+          stepControlWithPump(false, 'b');
         
-    } else if (IrReceiver.decodedIRData.command == 0x1C) {
-        // stop without pump
-        stepControlWithoutPump(true, dirValue);
-
-    } else if (IrReceiver.decodedIRData.command == 0x16) {
-        // forward with pump
-        stepControlWithPump(false, 'f');
-      
-    } else if (IrReceiver.decodedIRData.command == 0xD) {
-        // backward with pump
-        stepControlWithPump(false, 'b');
-      
-    } else if (IrReceiver.decodedIRData.command == 0x19) {
-        // stop with pump
-        stepControlWithPump(true, dirValue);
+      } else if (IrReceiver.decodedIRData.command == 0x19) {
+          // stop with pump
+          stepControlWithPump(true, dirValue);
+      } else if (IrReceiver.decodedIRData.command == 0x45) {
+          // turn off system
+         turnOffSystem(false);
+      }
+    } else if (IrReceiver.decodedIRData.command == 0x47) {
+      turnOffSystem(true);
     }
   }
 }
@@ -205,26 +194,53 @@ void limitSensorsListener() {
 //  delay(500);
 }
 
-/**
- * Sleep Algo
- */
-//void goingToSleep() {
-//  Serial.println("---going to sleep---");
-//  sleep_enable(); // Enabling sleep mode
-//  attachInterrupt(digitalPinToInterrupt(interruptPin), wakeUp, LOW); // attaching pin interrupt to pin 2
-//  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Setting the sleep mode(Full sleep)
-//  // seet indicator that the system is off (LED turn off)
-//  digitalWrite(LED_BUILTIN, LOW);
-//  delay(1000); // give time to fully turn off indicator
-//  sleep_cpu(); // activating sleep mode
-//  Serial.println("Just woke up!"); // Execute code after interrupt
-//  // power on indicator
-//  digitalWrite(LED_BUILTIN, HIGH);
-//}
+void turnOffSystem(boolean on) {
 
-//void wakeUp() {
-//  Serial.println("Interrupt Fired");
-//  sleep_disable();
-//  detachInterrupt(digitalPinToInterrupt(interruptPin));
-//  // setup actions
-//}
+  if (on == true) {
+    offEndicator = false;
+    Serial.println("--Turning on system--");  
+    // Turn on stepper power
+    digitalWrite(stepperPowerRelay, LOW);
+  }
+  
+  stepControlWithoutPump(false, 'f');
+
+  while(true) {
+    int rightLimit = digitalRead(limitButtonRight);
+    runStepper();
+    if (rightLimit == 1) {
+       stepControlWithoutPump(true, 'r');  
+      break;
+    }
+  }
+
+  stepControlWithoutPump(false, 'b');
+
+  while(true) {
+    int leftLimit = digitalRead(limitButtonLeft);
+    runStepper();
+    if (leftLimit == 1) {
+      stepControlWithoutPump(true, 'l');  
+      break;
+    }
+  }
+
+  stepControlWithoutPump(false, 'f');
+
+
+  while(true) {
+    int rightLimit = digitalRead(limitButtonRight);
+    runStepper();
+    if (rightLimit == 1) {
+       stepControlWithoutPump(true, 'r');
+      break;
+    }
+  }
+
+  if (on == false) {
+    offEndicator = true;
+    Serial.println("Final Stop");  
+    // Turn off stepper power
+    digitalWrite(stepperPowerRelay, HIGH);
+  }
+}
