@@ -55,6 +55,22 @@ void loop() {
   irListener();
   buttonsListener();
   limitSensorsListener();
+
+  if (Serial.available() > 0) {
+    char inByte = Serial.read();
+
+    Serial.print("Value: ");
+    Serial.println(inByte);
+
+    if (inByte == 's') {
+      delay(1000);
+      Serial.println("-- Go To Sleep --");
+      digitalWrite(pumpEnable, LOW);
+      delay(1000);
+      digitalWrite(pumpEnable, HIGH);
+//      goingToSleep();      
+    }
+  }
   
 //  Serial.print("Speed: ");
 //  Serial.println(customDelayMapped);
@@ -182,8 +198,8 @@ void limitSensorsListener() {
     stepControlWithoutPump(true, 'l');
   }
 
-  Serial.print("DIR Value: ");
-  Serial.println(dirValue);
+  //Serial.print("DIR Value: ");
+  //Serial.println(dirValue);
 //  Serial.print("Limit Sensor Left: ");
 //  Serial.println(leftLimit); 
 //  delay(500);
@@ -192,22 +208,23 @@ void limitSensorsListener() {
 /**
  * Sleep Algo
  */
-void goingToSleep() {
-  sleep_enable(); // Enabling sleep mode
-  attachInterrupt(digitalPinToInterrupt(interruptPin), wakeUp, LOW); // attaching pin interrupt to pin 2
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Setting the sleep mode(Full sleep)
-  // seet indicator that the system is off (LED turn off)
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000); // give time to fully turn off indicator
-  sleep_cpu(); // activating sleep mode
-  Serial.println("Just woke up!"); // Execute code after interrupt
-  // power on indicator
-  digitalWrite(LED_BUILTIN, HIGH);
-}
+//void goingToSleep() {
+//  Serial.println("---going to sleep---");
+//  sleep_enable(); // Enabling sleep mode
+//  attachInterrupt(digitalPinToInterrupt(interruptPin), wakeUp, LOW); // attaching pin interrupt to pin 2
+//  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Setting the sleep mode(Full sleep)
+//  // seet indicator that the system is off (LED turn off)
+//  digitalWrite(LED_BUILTIN, LOW);
+//  delay(1000); // give time to fully turn off indicator
+//  sleep_cpu(); // activating sleep mode
+//  Serial.println("Just woke up!"); // Execute code after interrupt
+//  // power on indicator
+//  digitalWrite(LED_BUILTIN, HIGH);
+//}
 
-void wakeUp() {
-  Serial.println("Interrupt Fired");
-  sleep_disable();
-  detachInterrupt(digitalPinToInterrupt(interruptPin));
-  // setup actions
-}
+//void wakeUp() {
+//  Serial.println("Interrupt Fired");
+//  sleep_disable();
+//  detachInterrupt(digitalPinToInterrupt(interruptPin));
+//  // setup actions
+//}
